@@ -36,7 +36,7 @@ jobs:
       - run:
           name: Wait for PostgreSQL
           command: |
-            dockerize -wait tcp://localhost:5433 -timeout 1m
+            dockerize -wait tcp://postgres:5433 -timeout 2m
       - run:
           name: Run tests
           command: |
