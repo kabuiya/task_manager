@@ -15,7 +15,7 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:password@localhost:5433/circle_test'
+    SQLALCHEMY_DATABASE_URI = 'postgresql://root@postgres/circle_test'
 
 
 config = {
