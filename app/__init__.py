@@ -13,14 +13,16 @@ from .views import views_bp
 
 def create_app(config_name='testing'):
     app = Flask(__name__)
+    if os.environ.get('CIRCLECI'):
+        # CircleCI testing environment
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://root@postgres/circle_test'
 
     if config_name == 'testing':
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/taskmanangement'
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/testdb'
 
-        #app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://root@postgres/circle_test'
+
     else:
-        pass
-        # app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/taskmanangement'
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/taskmanangement'
 
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
