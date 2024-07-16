@@ -15,10 +15,12 @@ def create_app(config_name='testing'):
     app = Flask(__name__)
 
     if config_name == 'testing':
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://root@postgres/circle_test'
-    else:
-
         app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/taskmanangement'
+
+        #app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://root@postgres/circle_test'
+    else:
+        pass
+        # app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/taskmanangement'
 
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
