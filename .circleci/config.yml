@@ -1,34 +1,52 @@
 version: 2.1
 
 orbs:
-  python: circleci/python@2.0.3
+  python: circleci/python@2.1.1
+  coveralls: coveralls/coveralls@1.0.6
 
 jobs:
   build-and-test:
     docker:
       - image: cimg/python:3.9
+        environment:
+          FLASK_ENV: testing
+          SECRET_KEY: dummy_secret_key
+          DATABASE_URL: postgresql://root@postgres/circle_test
+      - image: cimg/postgres:14.1
+        name: postgres
+        environment:
+          POSTGRES_USER: root
+          POSTGRES_DB: circle_test
+          POSTGRES_PASSWORD: ""
+        command: -p 5433
+
     executor:
     steps:
       - checkout
       - python/install-packages:
           pkg-manager: pip
       - run:
-          name: Install dependencies
+          name: Install additional dependencies
           command: |
             pip install pytest pytest-cov coveralls
       - run:
-          name: Run tests with coverage
+          name: Wait for PostgreSQL
           command: |
-            pytest --cov=./ --cov-report=xml
+            dockerize -wait tcp://localhost:5433 -timeout 1m
       - run:
-          name: Upload coverage to Coveralls
+          name: Run tests
           command: |
-            coveralls
-          environment:
-            COVERALLS_REPO_TOKEN: ${COVERALLS_REPO_TOKEN}
-            COVERALLS_SERVICE_NAME: circleci
+            pytest tests/ --cov=./ --cov-report=xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: coverage.xml
+          destination: coverage-report
+      - coveralls/upload:
+          coverage_file: coverage.xml
+          flag_name: Unit
 
 workflows:
-  sample:
+  test-workflow:
     jobs:
       - build-and-test
