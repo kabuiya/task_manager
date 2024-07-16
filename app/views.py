@@ -7,7 +7,7 @@ import jwt
 from flask import request, jsonify, current_app
 from flask import Blueprint
 
-from model.models import User, db, Task, CompletedTask, Category
+from app.models import User, db, Task, CompletedTask, PriorityEnum, StatusEnum, CategoryEnum
 
 views_bp = Blueprint('views', __name__)
 
@@ -54,8 +54,6 @@ def token_required(funct):
             return jsonify({'message': 'Invalid token'}), 401
         if user_id is None or user_name is None:
             return jsonify({'message': 'Unauthorized access'}), 401
-        # if check_blacklist(request.headers.get('Authorization').split()[1]):
-        #     return jsonify({'message': 'Token has already expired, please log in again'})
         return funct(user_id, *args, **kwargs)
 
     return wrapper
@@ -66,6 +64,7 @@ def user_registration():
     data = request.get_json()
     if data['username'] != '' and data['email'] != '' and data['password'] != '':
         hashed_password = hashed_pass(data['password'])
+        print(hashed_password, 'stored password')
         truncated_username = data['username'][:120]
         new_user = User(username=truncated_username, email=data['email'], password=hashed_password)
         try:
@@ -100,24 +99,27 @@ def hashed_pass(plaintext_password):
 
 @views_bp.route("/api/v1/login", methods=['POST'])
 def user_login():
-    data = request.get_json()
-    if 'username' in data and 'password' in data:
-        username = data['username']
-        password = data['password']
-        user = User.query.filter_by(username=username).first()
-        print(user.password)
-        if user and check_password(password, user.password):
-            token = jwt.encode(
-                {'user_id': user.id, 'username': username,
-                 'exp': datetime.utcnow() + timedelta(minutes=30)},
-                current_app.config['SECRET_KEY'])
-            print(token, 'ater login')
-            # return jsonify({'message': {'success': 'successfully, logged in', 'token': token}}), 200
-            return jsonify({'success': 'successfully, logged in', 'token': token}), 200
+    try:
+        data = request.get_json()
+        if 'username' in data and 'password' in data:
+            username = data['username']
+            password = data['password']
+            user = User.query.filter_by(username=username).first()
+            if user and check_password(password, user.password):
+                token = jwt.encode(
+                    {'user_id': user.id, 'username': username,
+                     'exp': datetime.utcnow() + timedelta(minutes=30)},
+                    current_app.config['SECRET_KEY'])
+                #return jsonify({'message': {'success': 'successfully, logged in', 'token': token}}), 200
+                return jsonify({'success': 'successfully, logged in', 'token': token}), 200
+            else:
+                return jsonify({"error": "Invalid username or password"}), 401
         else:
-            return jsonify({"error": "Invalid username or password"}), 401
-    else:
-        return jsonify({"error": "Username and password are required"}), 400
+            return jsonify({"error": "Username and password are required"}), 400
+
+    except Exception as e:
+        import traceback
+        return jsonify({"error": "An internal error occurred"}), 500
 
 
 def check_password(passwd, hashed_password_hex):
@@ -169,11 +171,16 @@ def delete_user_account(user_id):
 def add_task_to_user(user_id):
     task_data = request.get_json()
     try:
+        try:
+            priority = PriorityEnum[task_data['priority']]
+            category = CategoryEnum[task_data['category']]
+        except KeyError as e:
+            return jsonify({"error": f"Invalid value for {e.args[0]}"})
         new_task = Task(
             owner=user_id,
-            category_id=task_data.get('category_id'),
-            priority=task_data.get('priority'),
-            status=task_data.get('status'),
+            category=category,
+            priority=priority,
+            status="pending",
             title=task_data.get('title'),
             description=task_data.get('description'),
             completion_date=task_data.get('completion_date')
@@ -183,7 +190,7 @@ def add_task_to_user(user_id):
         return jsonify({"message": "Task added successfully"}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), 500  #
 
 
 @views_bp.route("/api/v1/user/get_all_tasks", methods=['GET'])
@@ -192,29 +199,63 @@ def get_all_tasks_for_user(user_id):
     try:
 
         tasks = Task.query.filter_by(owner=user_id).all()
-        serialized_tasks = [{"id": task.id, "owner": task.owner, "category": task.category.name,
-                             "priority": task.priority, "status": task.status,
-                             "title": task.title, "description": task.description,
-                             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
-                             "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"), }
-                            for task in tasks]
-
+        print(tasks, 'user tasks')
+        serialized_tasks = [
+            {"id": task.id, "owner": task.owner, "status": task.status.name, "category": task.category.name,
+             "priority": task.priority.name, "title": task.title, "description": task.description,
+             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
+             "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"), }
+            for task in tasks]
+        print(serialized_tasks)
         return jsonify(serialized_tasks), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@views_bp.route("/api/v1/user/get_pending_tasks", methods=['GET'])
+@views_bp.route("/api/v1/user/update_task_status/<int:task_id>", methods=['put'])
+@token_required
+def update_task_status(user_id, task_id):
+    try:
+        task = Task.query.filter_by(id=task_id, owner=user_id).first()
+        print(task.status, 'task status')
+        if not task:
+            return jsonify({"error": "Task not found"}), 404
+
+        if task.status == StatusEnum.pending:
+            print('pending')
+            task.status = StatusEnum.progress
+            db.session.commit()
+            print('status after updatinng', task.status)
+            return jsonify({"message": "Task status updated to in progress"}), 200
+        return jsonify({"error": "Task is not in pending status"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@views_bp.route("/api/v1/user/get_overdue_tasks", methods=['GET'])
 @token_required
 def get_tasks_passed_completion_date_for_user(user_id):
     try:
         current_datetime = datetime.utcnow()
         tasks_passed_completion_date = Task.query.filter(Task.owner == user_id,
                                                          Task.completion_date <= current_datetime).all()
+        serialized_tasks = []
+        for task in tasks_passed_completion_date:
+            serialized_task = {
+                "id": task.id,
+                "owner": task.owner,
+                "category": task.category.name,
+                "priority": task.priority.value,
+                "title": task.title,
+                "description": task.description,
+                "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S") if task.completion_date else None,
+                "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            serialized_tasks.append(serialized_task)
 
-        return tasks_passed_completion_date
+        return jsonify(serialized_tasks), 200
     except Exception as e:
-        # Handle any potential exceptions here, such as database errors
         print(f"An error occurred: {e}")
         return None
 
@@ -228,9 +269,22 @@ def get_tasks_within_next_24_hours(user_id):
         tasks_within_next_24_hours = Task.query.filter(Task.owner == user_id, Task.completion_date >= current_datetime,
                                                        Task.completion_date <= end_datetime).all()
 
-        return tasks_within_next_24_hours
+        serialized_upcomingTasks = []
+        for task in tasks_within_next_24_hours:
+            serialized_upcomingTask = {
+                "id": task.id,
+                "owner": task.owner,
+                "category": task.category.name,  # Assuming task.category is an Enum with a 'name' attribute
+                "priority": task.priority.value,  # Assuming task.priority is an Enum with a 'value' attribute
+                "title": task.title,
+                "description": task.description,
+                "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S") if task.completion_date else None,
+                "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            serialized_upcomingTasks.append(serialized_upcomingTask)
+
+        return jsonify(serialized_upcomingTasks), 200
     except Exception as e:
-        print(f"An error occurred: {e}")
         return None
 
 
@@ -241,8 +295,7 @@ def get_task_by_id(user_id, task_id):
         task = Task.query.filter_by(id=task_id, owner=user_id).first()
         if task:
             serialized_task = {"id": task.id, "owner": task.owner, "category": task.category.name,
-                               "priority": task.priority, "status": task.status,
-                               "title": task.title, "description": task.description,
+                               "priority": task.priority.name, "title": task.title, "description": task.description,
                                "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
                                "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                                }
@@ -253,17 +306,19 @@ def get_task_by_id(user_id, task_id):
         return jsonify({"error": str(e)}), 500
 
 
-@views_bp.route("/api/v1/user/update_task/<int:task_id>", methods=['UPDATE'])
+@views_bp.route("/api/v1/user/update_task/<int:task_id>", methods=['PUT'])
 @token_required
-def update_task(user_id, task_id, updated_data):
+def update_task(user_id, task_id):
     try:
         task = Task.query.filter_by(id=task_id, owner=user_id).first()
         if task:
+            updated_data = request.get_json()
             for key, value in updated_data.items():
                 setattr(task, key, value)
             db.session.commit()
             return jsonify({"message": "Task updated successfully"}), 200
         else:
+
             return jsonify({"error": "Task not found or unauthorized"}), 404
     except Exception as e:
         db.session.rollback()
@@ -286,20 +341,33 @@ def delete_task(user_id, task_id):
         return jsonify({"error": str(e)}), 500
 
 
-# filtering
+#
+#
+# # filtering
 @views_bp.route("/api/v1/tasks/filter/category/<category_name>", methods=['GET'])
 @token_required
 def filter_user_tasks_by_category(user_id, category_name):
     try:
-        user_category_tasks = Task.query.filter(Task.owner == user_id, Task.category.has(name=category_name)).all()
-        print(user_category_tasks)
-        serialized_tasks = [{"id": task.id, "owner": task.owner, "category": task.category.name,
-                             "priority": task.priority, "status": task.status,
-                             "title": task.title, "description": task.description,
-                             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
-                             "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"), }
-                            for task in user_category_tasks]
+        user_category_tasks = Task.query.filter(
+            Task.owner == user_id,
+            Task.category == CategoryEnum[category_name]
+        ).all()
+
+        serialized_tasks = [{
+            "id": task.id,
+            "owner": task.owner,
+            "category": task.category.name,
+            "priority": task.priority.name,
+            "status": task.status.name,
+            "title": task.title,
+            "description": task.description,
+            "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S") if task.completion_date else None,
+            "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+        } for task in user_category_tasks]
+
         return jsonify(serialized_tasks), 200
+    except KeyError:
+        return jsonify({"error": f"Invalid category: {category_name}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -313,8 +381,7 @@ def filter_user_tasks_by_priority(user_id, priority_name):
             "id": task.id,
             "owner": task.owner,
             "category": task.category.name,
-            "priority": task.priority,
-            "status": task.status,
+            "priority": task.priority.name,
             "title": task.title,
             "description": task.description,
             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -334,8 +401,7 @@ def filter_user_tasks_by_status(user_id, status_name):
             "id": task.id,
             "owner": task.owner,
             "category": task.category.name,
-            "priority": task.priority,
-            "status": task.status,
+            "priority": task.priority.name,
             "title": task.title,
             "description": task.description,
             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -350,19 +416,17 @@ def filter_user_tasks_by_status(user_id, status_name):
 @token_required
 def filter_user_tasks_by_completion_date(user_id, date):
     try:
-        filter_date = datetime.strptime(date, '%Y-%m-%d')
-        end_of_day = filter_date + timedelta(days=1) - timedelta(seconds=1)
-        tasks = Task.query.filter(Task.owner == user_id, Task.completion_date <= end_of_day).all()
-
-        # completion_date = datetime.strptime(date, "%Y-%m-%d")
-        # user_completion_date_tasks = Task.query.filter(Task.owner == user_id,
-        #                                               Task.completion_date == completion_date).all()
+        date = date.strip()
+        filter_date = datetime.strptime(date, '%Y-%m-%d').date()
+        tasks = Task.query.filter(
+            Task.owner == user_id,
+            func.date(Task.completion_date) == filter_date
+        ).all()
         serialized_tasks = [{
             "id": task.id,
             "owner": task.owner,
             "category": task.category.name,
-            "priority": task.priority,
-            "status": task.status,
+            "priority": task.priority.name,
             "title": task.title,
             "description": task.description,
             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -411,11 +475,11 @@ def get_completed_tasks(user_id):
         return jsonify({"error": str(e)}), 500
 
 
+@views_bp.route("/api/v1/task/delete_completed/<int:task_id>", methods=['DELETE'])
 @token_required
-@views_bp.route("/api/v1/tasks/delete_completed/<int:id>", methods=['  DELETE'])
-def delete_completed_task(current_user_id, task_id):
+def delete_completed_task(user_id, task_id):
     try:
-        completed_task = CompletedTask.query.filter_by(id=task_id, owner=current_user_id).first()
+        completed_task = CompletedTask.query.filter_by(id=task_id, owner=user_id).first()
 
         if not completed_task:
             return jsonify({"error": "Completed task not found or does not belong to the authenticated user"}), 404
@@ -428,8 +492,8 @@ def delete_completed_task(current_user_id, task_id):
         return jsonify({"error": str(e)}), 500
 
 
-@token_required
 @views_bp.route("/api/v1/tasks/delete_all_completed/", methods=['DELETE'])
+@token_required
 def delete_all_completed_tasks(current_user_id):
     try:
         completed_tasks = CompletedTask.query.filter_by(owner=current_user_id).all()
@@ -447,17 +511,26 @@ def delete_all_completed_tasks(current_user_id):
         return jsonify({"error": str(e)}), 500
 
 
-# filter by category and priority
+#filter by category and priority
 @views_bp.route("/api/v1/tasks/filter/category/<category_name>/priority/<priority_name>", methods=['GET'])
 @token_required
 def filter_tasks_by_category_and_priority(user_id, category_name, priority_name):
     try:
-        user_tasks = Task.query.join(Category).filter(Task.owner == user_id, Category.name == category_name,
-                                                      Task.priority == priority_name).all()
+        try:
+            category = CategoryEnum(category_name.lower())
+            priority = PriorityEnum(priority_name.lower())
+        except ValueError:
+            return jsonify({"error": "Invalid category or priority"}), 400
+
+        user_tasks = Task.query.filter(
+            Task.owner == user_id,
+            Task.category == category,
+            Task.priority == priority
+        ).all()
         serialized_tasks = [{
             "id": task.id,
             "category": task.category.name,
-            "priority": task.priority,
+            "priority": task.priority.name,
             "title": task.title,
             "description": task.description,
             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -468,17 +541,25 @@ def filter_tasks_by_category_and_priority(user_id, category_name, priority_name)
         return jsonify({"error": str(e)}), 500
 
 
-# category and atstua
 @views_bp.route("/api/v1/tasks/filter/category/<category_name>/status/<status_name>", methods=['GET'])
 @token_required
 def filter_tasks_by_category_and_status(user_id, category_name, status_name):
     try:
-        user_tasks = Task.query.join(Category).filter(Task.owner == user_id, Category.name == category_name,
-                                                      Task.status == status_name).all()
+        try:
+            category = CategoryEnum(category_name.lower())
+            status = StatusEnum(status_name.lower())
+        except ValueError:
+            return jsonify({"error": "Invalid category or priority"}), 400
+
+        user_tasks = Task.query.filter(
+            Task.owner == user_id,
+            Task.category == category,
+            Task.status == status
+        ).all()
         serialized_tasks = [{
             "id": task.id,
             "category": task.category.name,
-            "status": task.status,
+            "priority": task.priority.name,
             "title": task.title,
             "description": task.description,
             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -493,13 +574,18 @@ def filter_tasks_by_category_and_status(user_id, category_name, status_name):
 @token_required
 def filter_tasks_by_category_and_completion_date(user_id, category_name, completion_date):
     try:
-        # Convert completion_date string to datetime object
         completion_date = datetime.strptime(completion_date, "%Y-%m-%d").date()
+        try:
+            category = CategoryEnum(category_name.lower())
+            print(category)
 
-        user_tasks = Task.query.join(Category).filter(
+        except ValueError:
+            return jsonify({"error": "Invalid category or priority"}), 400
+
+        user_tasks = Task.query.filter(
             Task.owner == user_id,
-            Category.name == category_name,
-            func.DATE(Task.completion_date) == completion_date  # Extract date part and compare
+            Task.category == category,
+            func.DATE(Task.completion_date) == completion_date
         ).all()
 
         serialized_tasks = [{
@@ -508,10 +594,12 @@ def filter_tasks_by_category_and_completion_date(user_id, category_name, complet
             "completion_date": task.completion_date.strftime("%Y-%m-%d %H:%M:%S"),
             "title": task.title,
             "description": task.description,
-            "priority": task.priority,
+            "priority": task.priority.name,
             "created_at": task.created_at.strftime("%Y-%m-%d %H:%M:%S")
         } for task in user_tasks]
 
         return jsonify(serialized_tasks), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+#

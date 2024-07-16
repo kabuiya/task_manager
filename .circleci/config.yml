@@ -1,0 +1,29 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.0.3
+  coveralls: coveralls/coveralls@1.0.6
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/python:3.9
+    executor:
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Install dependencies
+          command: |
+            pip install pytest pytest-cov coveralls
+      - run:
+          name: Run tests with coverage
+          command: |
+            pytest --cov=./ --cov-report=xml
+      - coveralls/upload
+
+workflows:
+  sample:
+    jobs:
+      - build-and-test

@@ -10,6 +10,14 @@ The Task Manager API is a Flask-based CRUD application designed to provide users
 - **Task Filtering**: Tasks can be filtered based on category, priority, status, and completion date.
 - **Task Completion**: Users can mark tasks as completed and view completed tasks.
 
+### Technologies used:
+- Python, Flask RESTful
+- Database: PostgreSQL (chosen based on project requirements)
+  Authentication: JSON Web Tokens (JWT) for authentication and authorization
+  Testing: tests written with pytest
+  Continuous Integration: Integrated with CircleCI
+  Continuous Coverage: Utilizes coverage tools to measure test coverage (coveralls)
+
 ## Endpoints
 
 ### User Management
