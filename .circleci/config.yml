@@ -41,7 +41,7 @@ jobs:
       - run:
           name: Check PostgreSQL connection
           command: |
-            PGPASSWORD='' psql -h localhost -p 5433 -U root -d circle_test -c 'SELECT 1;'
+            PGPASSWORD='' psql -h localhost -p 5433 -U postgres -d circle_test -c 'SELECT 1;'
       - run:
           name: Run tests
           command: |
