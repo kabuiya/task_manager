@@ -11,14 +11,14 @@ from .models import db, User, CompletedTask, Task
 from .views import views_bp
 
 
-def create_app(config_name='testing'):
+def create_app(config_name=''):
     app = Flask(__name__)
-    if os.environ.get('CIRCLECI'):
-        # CircleCI testing environment
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/circle_test'
+    # if os.environ.get('CIRCLECI'):
+    #     # CircleCI testing environment
+    #     app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/circle_test'
 
     if config_name == 'testing':
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/testdb'
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/circle_test'
 
 
     else:

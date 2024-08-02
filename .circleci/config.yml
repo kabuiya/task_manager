@@ -9,7 +9,7 @@ jobs:
       - image: cimg/python:3.9
         environment:
           FLASK_ENV: testing
-          CIRCLECI: true
+#          CIRCLECI: true
           SECRET_KEY: 'dhytersgasdass'
           DATABASE_URL: postgresql://postgres:password@localhost:5433/circle_test
       - image: cimg/postgres:14.1
