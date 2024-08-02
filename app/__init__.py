@@ -15,7 +15,7 @@ def create_app(config_name='testing'):
     app = Flask(__name__)
 
     if config_name == 'testing':
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/testdb'
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/circle_test'
 
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/taskmanangement'
