@@ -3,7 +3,6 @@ version: 2.1
 orbs:
   python: circleci/python@2.1.1
 
-
 jobs:
   build-and-test:
     docker:
@@ -12,7 +11,7 @@ jobs:
           FLASK_ENV: testing
           CIRCLECI: true
           SECRET_KEY: 'dhytersgasdass'
-          DATABASE_URL: postgresql://root@postgres/circle_test
+          DATABASE_URL: postgresql://root@localhost:5433/circle_test
       - image: cimg/postgres:14.1
         name: postgres
         environment:
@@ -45,11 +44,11 @@ jobs:
       - run:
           name: Wait for PostgreSQL
           command: |
-            dockerize -wait tcp://postgres:5433 -timeout 2m
-
+            dockerize -wait tcp://localhost:5433 -timeout 2m
       - run:
+          name: Check PostgreSQL connection
           command: |
-            docker-compose exec postgres psql -U root -d circle_test -c 'SELECT 1;'
+            PGPASSWORD='' psql -h localhost -p 5433 -U root -d circle_test -c 'SELECT 1;'
       - run:
           name: Run tests
           command: |
@@ -57,7 +56,6 @@ jobs:
       - run:
           name: Upload coverage to Coveralls
           command: |
-            pip install coveralls
             coveralls
           environment:
             COVERALLS_REPO_TOKEN: ${COVERALLS_REPO_TOKEN}
