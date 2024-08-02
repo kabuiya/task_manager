@@ -11,14 +11,14 @@ jobs:
           FLASK_ENV: testing
           CIRCLECI: true
           SECRET_KEY: 'dhytersgasdass'
-          DATABASE_URL: postgresql://root@localhost:5433/circle_test
+          DATABASE_URL: postgresql://root@postgres:5433/circle_test
       - image: cimg/postgres:14.1
         name: postgres
         environment:
           POSTGRES_USER: root
           POSTGRES_DB: circle_test
           POSTGRES_PASSWORD: ""
-        command: -p 5433
+        command: ["-p", "5433"]
 
     executor:
     steps:
@@ -44,11 +44,16 @@ jobs:
       - run:
           name: Wait for PostgreSQL
           command: |
-            dockerize -wait tcp://localhost:5433 -timeout 2m
+            dockerize -wait tcp://postgres:5433 -timeout 3m
+      - run:
+          name: Check PostgreSQL status
+          command: |
+            docker ps
+            docker logs postgres
       - run:
           name: Check PostgreSQL connection
           command: |
-            PGPASSWORD='' psql -h localhost -p 5433 -U root -d circle_test -c 'SELECT 1;'
+            PGPASSWORD='' psql -h postgres -p 5433 -U root -d circle_test -c 'SELECT 1;'
       - run:
           name: Run tests
           command: |
