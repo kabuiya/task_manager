@@ -43,9 +43,10 @@ jobs:
           command: |
             PGPASSWORD='' psql -h localhost -p 5433 -U postgres -d circle_test -c 'SELECT 1;'
       - run:
-          name: Run tests
+          name: Run tests with coverage
           command: |
-            pytest tests/ --cov=./ --cov-report=xml
+            coverage run -m pytest
+            coverage xml
       - run:
           name: Upload coverage to Coveralls
           command: |
