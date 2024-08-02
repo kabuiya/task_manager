@@ -11,10 +11,10 @@ jobs:
           FLASK_ENV: testing
           CIRCLECI: true
           SECRET_KEY: 'dhytersgasdass'
-          DATABASE_URL: postgresql://root@localhost:5433/circle_test
+          DATABASE_URL: postgresql://postgres:password@localhost:5433/circle_test
       - image: cimg/postgres:14.1
         environment:
-          POSTGRES_USER: root
+          POSTGRES_USER: postgres
           POSTGRES_DB: circle_test
           POSTGRES_PASSWORD: ""
         command: -p 5433

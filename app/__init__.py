@@ -15,7 +15,7 @@ def create_app(config_name='testing'):
     app = Flask(__name__)
     if os.environ.get('CIRCLECI'):
         # CircleCI testing environment
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://root@postgres/circle_test'
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/circle_test'
 
     if config_name == 'testing':
         app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5433/testdb'
