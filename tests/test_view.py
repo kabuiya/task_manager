@@ -6,7 +6,7 @@ from app.models import User, Task, CategoryEnum, PriorityEnum, StatusEnum, Compl
 from app.views import hashed_pass
 
 
-#
+
 
 
 @pytest.fixture
@@ -117,7 +117,7 @@ def test_get_all_tasks(client, auth_token, test_user, db_session, create_test_ta
     assert response.status_code == 200
 
 
-#
+
 def test_update_task_status(client, auth_token, test_user, create_test_tasks):
     task = create_test_tasks
     headers = {'Authorization': f'Bearer {auth_token}'}
@@ -127,7 +127,7 @@ def test_update_task_status(client, auth_token, test_user, create_test_tasks):
     assert b"Task status updated to in progress" in response.data
 
 
-#
+
 def test_get_overdue_tasks(client, auth_token, db_session, test_user):
     headers = {'Authorization': f'Bearer {auth_token}'}
     task = Task(owner=test_user.id, title='Overdue Task', description='Description', priority=PriorityEnum.high,
@@ -155,8 +155,7 @@ def test_get_upcoming_tasks(client, auth_token, db_session, test_user):
     assert response.json[0]['title'] == 'Upcoming Task'
 
 
-#
-#
+
 def test_get_task_by_id(client, auth_token, db_session, test_user, create_test_tasks):
     headers = {'Authorization': f'Bearer {auth_token}'}
     task = create_test_tasks
@@ -165,7 +164,7 @@ def test_get_task_by_id(client, auth_token, db_session, test_user, create_test_t
     assert response.json['title'] == 'Test Task'
 
 
-#
+
 
 def test_update_task(client, auth_token, db_session, test_user):
     headers = {'Authorization': f'Bearer {auth_token}'}
