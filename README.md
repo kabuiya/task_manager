@@ -2,7 +2,8 @@
 # Task Manager API
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/kabuiya/task_manager/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/kabuiya/task_manager/tree/main)
 [![Coverage Status](https://coveralls.io/repos/github/kabuiya/task_manager/badge.svg)](https://coveralls.io/github/kabuiya/task_manager)
-(CRUD)
+
+#(CRUD)
 The Task Manager API is a Flask-based CRUD application designed to provide users with a platform to manage their tasks efficiently. It offers various functionalities such as user registration, task creation, task filtering, task completion, and more.
 ## Features
 
