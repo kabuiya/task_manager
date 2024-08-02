@@ -47,6 +47,7 @@ jobs:
           command: |
             coverage run -m pytest
             coverage xml
+            coverage report
       - run:
           name: Upload coverage to Coveralls
           command: |

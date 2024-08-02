@@ -2,5 +2,4 @@
 .External Libraries
 .idea/
 .env
-.coveralls.yml
-config.py
+
